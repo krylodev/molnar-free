@@ -332,7 +332,7 @@ namespace Molnar_Free_Tweaking_Utility
             // 
             titleLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             titleLabel.BackColor = Color.Transparent;
-            titleLabel.Content = "BETA\\ v1\\.0\\.0";
+            titleLabel.Content = "BETA\\ v1\\.0\\.1";
             titleLabel.Font = new Font("Poppins SemiBold", 8F, FontStyle.Bold);
             titleLabel.ForeColor = Color.FromArgb(97, 96, 104);
             titleLabel.HorizontalAlignment = StringAlignment.Center;

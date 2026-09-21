@@ -1,24 +1,31 @@
-using CuoreUI.Components;
+using Molnar_Free_Tweaking_Utility.Views;
 
 namespace Molnar_Free_Tweaking_Utility.Core
 {
     public static class Dialogs
     {
         public static Task<DialogResult> Message(Form owner, string message, string title) =>
-            Create().ShowDialog(owner, message, title);
+            Task.FromResult(Show(owner, title, message, false));
 
-        public static async Task<bool> Confirm(Form owner, string message, string title) =>
-            await Create().ShowDialog(owner, message, title, MessageBoxButtons.YesNo) == DialogResult.Yes;
+        public static Task<bool> Confirm(Form owner, string message, string title) =>
+            Task.FromResult(Show(owner, title, message, true) == DialogResult.Yes);
 
-        private static cuiMessageDialog Create() => new()
+        private static DialogResult Show(Form owner, string title, string message, bool confirm)
         {
-            BackColor = Theme.Surface,
-            ForeColor = Theme.Text,
-            DimColor = Color.FromArgb(160, 0, 0, 0),
-            DialogSize = new Size(420, 200),
-            ButtonSize = new Size(110, 34),
-            DialogPadding = new Padding(20),
-            Rounding = 12
-        };
+            using var dim = new Form
+            {
+                BackColor = Color.Black,
+                FormBorderStyle = FormBorderStyle.None,
+                Opacity = 0.55,
+                ShowInTaskbar = false,
+                StartPosition = FormStartPosition.Manual,
+                Bounds = owner.Bounds,
+                Region = owner.Region?.Clone()
+            };
+            using var dialog = new MessageDialog(title, message, confirm);
+
+            dim.Show(owner);
+            return dialog.ShowDialog(dim);
+        }
     }
 }

@@ -57,7 +57,9 @@ namespace Molnar_Free_Tweaking_Utility
             titleLabel = new CuoreUI.Controls.cuiLabel();
             cuiLabel1 = new CuoreUI.Controls.cuiLabel();
             pageHost = new Guna.UI2.WinForms.Guna2Panel();
-            cuiFormAnimator1 = new CuoreUI.Components.cuiFormAnimator(components);
+            form_anim = new CuoreUI.Components.cuiFormAnimator(components);
+            topbardrag = new CuoreUI.Components.cuiControlDrag(components);
+            toplabeldrag = new CuoreUI.Components.cuiControlDrag(components);
             topBar.SuspendLayout();
             SuspendLayout();
             // 
@@ -76,7 +78,7 @@ namespace Molnar_Free_Tweaking_Utility
             pageAnimator.AnimateLocation = true;
             pageAnimator.AnimateOnStart = false;
             pageAnimator.AnimateOpacity = false;
-            pageAnimator.Duration = 260;
+            pageAnimator.Duration = 400;
             pageAnimator.EasingType = CuoreUI.Helpers.DrawingHelper.EasingTypes.QuartOut;
             pageAnimator.TargetControl = null;
             pageAnimator.TargetLocation = new Point(0, 0);
@@ -366,14 +368,22 @@ namespace Molnar_Free_Tweaking_Utility
             pageHost.Size = new Size(1000, 608);
             pageHost.TabIndex = 1;
             // 
-            // cuiFormAnimator1
+            // form_anim
             // 
-            cuiFormAnimator1.AnimateOnStart = true;
-            cuiFormAnimator1.Duration = 1000;
-            cuiFormAnimator1.EasingType = CuoreUI.Helpers.DrawingHelper.EasingTypes.QuadOut;
-            cuiFormAnimator1.StartOpacity = 0D;
-            cuiFormAnimator1.TargetForm = this;
-            cuiFormAnimator1.TargetOpacity = 1D;
+            form_anim.AnimateOnStart = true;
+            form_anim.Duration = 1000;
+            form_anim.EasingType = CuoreUI.Helpers.DrawingHelper.EasingTypes.QuadOut;
+            form_anim.StartOpacity = 0D;
+            form_anim.TargetForm = this;
+            form_anim.TargetOpacity = 1D;
+            // 
+            // topbardrag
+            // 
+            topbardrag.TargetControl = topBar;
+            // 
+            // toplabeldrag
+            // 
+            toplabeldrag.TargetControl = titleLabel;
             // 
             // Main
             // 
@@ -417,6 +427,8 @@ namespace Molnar_Free_Tweaking_Utility
         private Guna.UI2.WinForms.Guna2Panel navIndicator;
         private Guna.UI2.WinForms.Guna2Panel pageHost;
         private CuoreUI.Controls.cuiLabel cuiLabel1;
-        private CuoreUI.Components.cuiFormAnimator cuiFormAnimator1;
+        private CuoreUI.Components.cuiFormAnimator form_anim;
+        private CuoreUI.Components.cuiControlDrag topbardrag;
+        private CuoreUI.Components.cuiControlDrag toplabeldrag;
     }
 }

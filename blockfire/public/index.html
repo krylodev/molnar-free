@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blockfire</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23ffb400'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/style.css">
+  <script type="importmap">
+    { "imports": { "three": "/vendor/three.module.js" } }
+  </script>
+</head>
+<body>
+  <div id="game"></div>
+
+  <div id="hud" class="hidden">
+    <div id="crosshair"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>
+    <div id="hitmarker"></div>
+    <div id="scope"><div class="lens"></div></div>
+    <div id="vignette"></div>
+    <div id="damage-arrows"></div>
+
+    <div id="topbar">
+      <div id="timer">5:00</div>
+      <div id="leader"></div>
+    </div>
+    <div id="killfeed"></div>
+    <div id="announce"></div>
+
+    <div id="bottom-left">
+      <div id="hp-text">100</div>
+      <div id="hp-bar"><div id="hp-fill"></div></div>
+    </div>
+    <div id="bottom-right">
+      <div id="ammo"><span id="ammo-cur">30</span><span id="ammo-max">/ 30</span></div>
+      <div id="weapon-name">Rifle</div>
+      <div id="slots"></div>
+    </div>
+    <div id="stats"><span id="fps">0</span> fps · <span id="ping">0</span> ms</div>
+
+    <div id="chat">
+      <div id="chat-log"></div>
+      <input id="chat-input" maxlength="120" autocomplete="off" placeholder="Say something… (Enter to send, Esc to cancel)">
+    </div>
+
+    <div id="death" class="hidden">
+      <div class="title">Eliminated</div>
+      <div id="death-by"></div>
+      <div id="death-timer"></div>
+    </div>
+
+    <div id="scoreboard" class="hidden">
+      <div id="sb-title"></div>
+      <table>
+        <thead><tr><th>#</th><th>Player</th><th>Kills</th><th>Deaths</th></tr></thead>
+        <tbody id="sb-rows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="menu">
+    <div class="panel">
+      <h1>BLOCK<span>FIRE</span></h1>
+      <p class="tag">Fast multiplayer arena shooter</p>
+      <label>Name <input id="name" maxlength="16" autocomplete="off" placeholder="Your name"></label>
+      <label>Room <input id="room" maxlength="20" autocomplete="off" placeholder="main"></label>
+      <button id="play">Play</button>
+      <button id="resume" class="hidden">Resume</button>
+      <button id="invite" class="secondary hidden">Copy invite link</button>
+      <div id="menu-error"></div>
+
+      <details id="settings">
+        <summary>Settings</summary>
+        <label>Sensitivity <input id="sens" type="range" min="0.2" max="4" step="0.05"> <output id="sens-val"></output></label>
+        <label>Field of view <input id="fov" type="range" min="60" max="110" step="1"> <output id="fov-val"></output></label>
+        <label>Volume <input id="vol" type="range" min="0" max="1" step="0.05"> <output id="vol-val"></output></label>
+      </details>
+
+      <div class="controls">
+        <div><b>WASD</b> move</div><div><b>Space</b> jump (hold to bhop)</div>
+        <div><b>Shift / C</b> crouch · slide</div><div><b>Mouse</b> aim · shoot</div>
+        <div><b>Right click</b> aim down sights</div><div><b>R</b> reload</div>
+        <div><b>1 2 3 / wheel</b> weapons</div><div><b>Q</b> last weapon</div>
+        <div><b>Tab</b> scoreboard</div><div><b>Enter</b> chat</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "blockfire",
+  "version": "1.0.0",
+  "description": "A fast-paced multiplayer browser FPS",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "three": "0.186.1",
+    "ws": "8.22.0"
+  }
+}

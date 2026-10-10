@@ -6,10 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const threeDir = path.dirname(fileURLToPath(import.meta.resolve('three')));
+const threeAddons = path.join(threeDir, '..', 'examples', 'jsm');
 
 const ROUTES = [
   ['/shared/', path.join(root, 'shared')],
   ['/vendor/', threeDir],
+  ['/addons/', threeAddons],
   ['/', path.join(root, 'public')],
 ];
 
@@ -21,6 +23,7 @@ const MIME = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.glb': 'model/gltf-binary',
 };
 
 function resolveFile(urlPath) {

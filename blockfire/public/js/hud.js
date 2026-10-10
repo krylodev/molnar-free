@@ -57,11 +57,17 @@ export class Hud {
   }
 
   setSpread(px) {
-    this.crosshair.style.setProperty('--gap', `${Math.round(4 + px)}px`);
+    const gap = Math.round(4 + px);
+    if (gap === this.lastGap) return;
+    this.lastGap = gap;
+    this.crosshair.style.setProperty('--gap', `${gap}px`);
   }
 
   setScope(on) {
-    $('scope').classList.toggle('show', !!on);
+    on = !!on;
+    if (on === this.lastScope) return;
+    this.lastScope = on;
+    $('scope').classList.toggle('show', on);
     this.crosshair.style.display = on ? 'none' : '';
   }
 

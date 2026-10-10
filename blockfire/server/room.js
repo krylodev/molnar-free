@@ -9,7 +9,7 @@ import {
   TICK_RATE, MAX_REWIND, MAX_PLAYERS, PLAYER, MOVE, MATCH, PLAYER_COLORS,
 } from '../shared/constants.js';
 import { WEAPONS, damageAt } from '../shared/weapons.js';
-import { BOXES, SPAWNS, MAP_HALF } from '../shared/map.js';
+import { getMap, nextMapId } from '../shared/maps/index.js';
 import {
   collidesAt, eyeHeight, playerHeight, playerHitboxes, rayAABB, raycastBoxes, normalize,
 } from '../shared/physics.js';
@@ -29,8 +29,10 @@ export function sanitizeName(name) {
 }
 
 export class Room {
-  constructor(name, { minPlayers = 4, onEmpty } = {}) {
+  constructor(name, { minPlayers = 4, onEmpty, map } = {}) {
     this.name = name;
+    this.map = getMap(map);
+    this.nextMap = nextMapId(this.map.id);
     this.minPlayers = minPlayers;
     this.onEmpty = onEmpty;
     this.players = new Map();
@@ -119,6 +121,8 @@ export class Room {
     return {
       st: this.match.state,
       end: Math.round(this.match.endsAt),
+      map: this.map.id,
+      next: this.nextMap,
       win: w ? w.id : null,
       winName: w ? w.name : null,
     };
@@ -176,8 +180,9 @@ export class Room {
     p.vBudget = Math.min(p.vBudget + dt * MOVE.maxFall * 1.25, 10);
     const horiz = Math.hypot(x - p.x, z - p.z);
     const vert = Math.abs(y - p.y);
-    const inBounds = Math.abs(x) < MAP_HALF && Math.abs(z) < MAP_HALF && y > -5 && y < 40;
-    const solid = collidesAt(BOXES, x, y + 0.15, z, playerHeight(crouch) - 0.3, PLAYER.radius - 0.1);
+    const half = this.map.half;
+    const inBounds = Math.abs(x) < half && Math.abs(z) < half && y > -5 && y < 40;
+    const solid = collidesAt(this.map.boxes, x, y + 0.15, z, playerHeight(crouch) - 0.3, PLAYER.radius - 0.1);
     if (horiz > p.moveBudget + 0.3 || vert > p.vBudget + 0.5 || !inBounds || solid) {
       p.sq++;
       p.moveBudget = 0;
@@ -264,7 +269,7 @@ export class Room {
     const ends = [];
     for (const raw of dirs) {
       const d = normalize(raw);
-      const wall = raycastBoxes(BOXES, o, d, W.range);
+      const wall = raycastBoxes(this.map.boxes, o, d, W.range);
       let best = wall ? wall.t : W.range;
       let hitTarget = null;
       let head = false;
@@ -331,7 +336,7 @@ export class Room {
 
   pickSpawn(p) {
     const enemies = [...this.players.values()].filter((q) => q !== p && q.alive);
-    const scored = SPAWNS.map(([x, z]) => {
+    const scored = this.map.spawns.map(([x, z]) => {
       let minD = Infinity;
       for (const e of enemies) minD = Math.min(minD, Math.hypot(e.x - x, e.z - z));
       return { x, z, score: minD + Math.random() * 6 };
@@ -375,14 +380,17 @@ export class Room {
   }
 
   startMatch(t) {
+    this.map = getMap(this.nextMap);
+    this.nextMap = nextMapId(this.map.id);
     this.match = { state: 'play', endsAt: t + MATCH.timeLimit * 1000, winner: null };
+    // clients load the new map before they get their spawn on it
+    this.broadcast({ t: 'm', ...this.matchInfo() });
     for (const p of this.players.values()) {
       p.kills = 0;
       p.deaths = 0;
       p.streak = 0;
       this.spawn(p);
     }
-    this.broadcast({ t: 'm', ...this.matchInfo() });
     this.broadcastScores();
   }
 

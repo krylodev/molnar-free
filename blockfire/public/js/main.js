@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import { CLIENT_SEND_RATE } from '/shared/constants.js';
 import { WEAPONS } from '/shared/weapons.js';
-import { buildWorld } from './world.js';
+import { MAPS, getMap } from '/shared/maps/index.js';
+import { World } from './world.js';
+import { Graphics } from './graphics.js';
+import { loadModels } from './models.js';
 import { Net } from './net.js';
 import { Input } from './input.js';
 import { Hud } from './hud.js';
@@ -13,7 +16,7 @@ import { LocalPlayer } from './local.js';
 const $ = (id) => document.getElementById(id);
 
 // --- settings -------------------------------------------------------------------
-const DEFAULTS = { sens: 1, fov: 85, vol: 0.6, name: '' };
+const DEFAULTS = { sens: 1, fov: 85, vol: 0.6, name: '', quality: 'auto', scale: 1, map: '' };
 function loadSettings() {
   try {
     return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('blockfire') ?? '{}') };
@@ -29,18 +32,24 @@ function saveSettings() {
 const settings = loadSettings();
 
 // --- renderer and scenes ----------------------------------------------------------
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// anti-aliasing is fixed when the context is created, so it follows the saved setting
+const renderer = new THREE.WebGLRenderer({
+  antialias: settings.quality === 'high',
+  powerPreference: 'high-performance',
+  stencil: false,
+});
+renderer.setPixelRatio(1);
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.autoClear = false;
 $('game').append(renderer.domElement);
 
 const scene = new THREE.Scene();
-buildWorld(scene, renderer);
+const world = new World(scene, renderer);
 const camera = new THREE.PerspectiveCamera(settings.fov, innerWidth / innerHeight, 0.05, 400);
 camera.rotation.order = 'YXZ';
+let currentMap = null;
 
 // first-person weapons render in their own pass so they never clip into walls
 const viewScene = new THREE.Scene();
@@ -59,6 +68,17 @@ addEventListener('resize', () => {
 });
 
 // --- game objects -----------------------------------------------------------------
+$('play').disabled = true;
+$('play').textContent = 'Loading…';
+try {
+  await loadModels();
+} catch (err) {
+  $('menu-error').textContent = `Could not load models: ${err.message}`;
+  throw err;
+}
+$('play').disabled = false;
+$('play').textContent = 'Play';
+
 const net = new Net();
 const input = new Input(renderer.domElement);
 const hud = new Hud();
@@ -68,6 +88,22 @@ const effects = new Effects(scene);
 const remotes = new Map();
 const players = new Map(); // id -> { id, name, color, kills, deaths, bot }
 const local = new LocalPlayer({ camera, viewScene, effects, sfx, net, hud, remotes, settings });
+let dynamicShadows = false;
+const graphics = new Graphics(renderer, world, (on) => {
+  dynamicShadows = on;
+  for (const rp of remotes.values()) rp.model.setCastShadow(on);
+});
+
+function loadMap(id) {
+  const map = getMap(id);
+  if (currentMap === map) return;
+  currentMap = map;
+  world.load(map);
+  effects.clear();
+  local.boxes = map.boxes;
+  camera.far = map.theme.fogFar + 10;
+  camera.updateProjectionMatrix();
+}
 
 let myId = null;
 let inGame = false;
@@ -83,7 +119,7 @@ function sysChat(text) {
 
 function addPlayer(info) {
   players.set(info.id, { ...info });
-  if (info.id !== myId && !remotes.has(info.id)) remotes.set(info.id, new RemotePlayer(info, scene));
+  if (info.id !== myId && !remotes.has(info.id)) remotes.set(info.id, new RemotePlayer(info, scene, dynamicShadows));
 }
 
 function removePlayer(id) {
@@ -104,6 +140,7 @@ function resetGame() {
 net.on('welcome', (m) => {
   myId = m.id;
   match = m.match;
+  loadMap(match.map);
   respawnTime = m.config.respawnTime;
   for (const p of m.players) addPlayer(p);
   inGame = true;
@@ -201,9 +238,10 @@ net.on('m', (m) => {
   match = m;
   if (m.st === 'end') {
     hud.announce(m.win === myId ? 'You win!' : `${m.winName ?? 'Nobody'} wins`);
-    sysChat(`Match over. ${m.winName ?? 'Nobody'} wins! Next match soon…`);
+    sysChat(`Match over. ${m.winName ?? 'Nobody'} wins! Next map: ${getMap(m.next).name}`);
   } else {
-    sysChat('New match started');
+    loadMap(m.map);
+    sysChat(`New match on ${getMap(m.map).name}`);
   }
 });
 
@@ -250,6 +288,34 @@ function bindSlider(id, key, fmt, apply) {
 bindSlider('sens', 'sens', (v) => v.toFixed(2));
 bindSlider('fov', 'fov', (v) => String(v));
 bindSlider('vol', 'vol', (v) => `${Math.round(v * 100)}%`, (v) => sfx.setVolume(v));
+bindSlider('scale', 'scale', (v) => `${Math.round(v * 100)}%`, () => graphics.apply(settings.quality, settings.scale));
+
+// graphics quality
+const startQuality = settings.quality;
+$('quality').value = settings.quality;
+function syncQualityUi() {
+  $('scale').disabled = settings.quality === 'auto';
+  const aaChanged = (settings.quality === 'high') !== (startQuality === 'high');
+  $('quality-note').textContent = aaChanged ? 'Reload the page to switch anti-aliasing.' : '';
+}
+$('quality').addEventListener('change', () => {
+  settings.quality = $('quality').value;
+  saveSettings();
+  graphics.apply(settings.quality, settings.scale);
+  syncQualityUi();
+});
+graphics.apply(settings.quality, settings.scale);
+syncQualityUi();
+
+// map picker: applies when you are the one who opens the room
+$('map').replaceChildren(new Option('Map rotation', ''), ...Object.values(MAPS).map((m) => new Option(m.name, m.id)));
+$('map').value = Object.hasOwn(MAPS, settings.map) ? settings.map : '';
+loadMap($('map').value || undefined);
+$('map').addEventListener('change', () => {
+  settings.map = $('map').value;
+  saveSettings();
+  if (!inGame) loadMap(settings.map || undefined);
+});
 
 $('play').addEventListener('click', () => {
   sfx.init();
@@ -258,7 +324,7 @@ $('play').addEventListener('click', () => {
   $('menu-error').textContent = '';
   $('play').disabled = true;
   $('play').textContent = 'Connecting…';
-  net.connect(settings.name, $('room').value.trim());
+  net.connect(settings.name, $('room').value.trim(), settings.map || undefined);
 });
 for (const id of ['name', 'room']) {
   $(id).addEventListener('keydown', (e) => {
@@ -319,6 +385,22 @@ let sendTimer = 0;
 let fpsFrames = 0;
 let fpsTime = 0;
 let fps = 0;
+let hudTimer = 0;
+
+// text, timer and scoreboard only change a few times a second
+function slowHud() {
+  hud.setStats(fps, Math.round(net.rtt));
+  let leader = null;
+  for (const p of players.values()) if (!leader || p.kills > leader.kills) leader = p;
+  const remaining = (match.end - net.serverNow()) / 1000;
+  const mapName = currentMap?.name ?? '';
+  hud.setTimer(remaining, match.st === 'end'
+    ? `Next map: ${getMap(match.next).name}`
+    : leader && leader.kills > 0 ? `${mapName} · Leader: ${leader.name} (${leader.kills})` : `${mapName} · Free for all`);
+  const showBoard = input.keys.has('Tab') || match.st === 'end';
+  hud.scoreboard(showBoard, players.values(), myId,
+    match.st === 'end' ? `${match.winName ?? 'Nobody'} wins!` : 'Scoreboard');
+}
 
 function frame() {
   requestAnimationFrame(frame);
@@ -349,22 +431,20 @@ function frame() {
 
     hud.setHealth(local.alive ? local.hp : 0);
     hud.setWeapon(local.weapon, local.ammo[local.weapon], local.reloading);
-    hud.setStats(fps, Math.round(net.rtt));
-    const leader = [...players.values()].sort((a, b) => b.kills - a.kills)[0];
-    const remaining = (match.end - net.serverNow()) / 1000;
-    hud.setTimer(remaining, match.st === 'end'
-      ? 'Next match starting…'
-      : leader && leader.kills > 0 ? `Leader: ${leader.name} (${leader.kills})` : 'Free for all');
     if (!local.alive) hud.death(true, killerName, respawnTime - (now - deathAt) / 1000);
-    const showBoard = input.keys.has('Tab') || match.st === 'end';
-    hud.scoreboard(showBoard, players.values(), myId,
-      match.st === 'end' ? `${match.winName ?? 'Nobody'} wins!` : 'Scoreboard');
+    hudTimer -= dt;
+    if (hudTimer <= 0 || input.wasPressed('Tab')) {
+      hudTimer = 0.2;
+      slowHud();
+    }
   } else {
     // slow fly-over behind the menu
     const t = now / 1000;
-    camera.position.set(Math.sin(t * 0.08) * 30, 14, Math.cos(t * 0.08) * 30);
+    const r = (currentMap?.half ?? 40) * 0.75;
+    camera.position.set(Math.sin(t * 0.08) * r, r * 0.45, Math.cos(t * 0.08) * r);
     camera.lookAt(0, 2, 0);
   }
+  graphics.tick(dt);
 
   effects.update(dt);
   renderer.clear();
@@ -376,3 +456,6 @@ function frame() {
   input.endFrame();
 }
 requestAnimationFrame(frame);
+
+// handy in the browser console: blockfire.renderer.info
+window.blockfire = { renderer, graphics, world };

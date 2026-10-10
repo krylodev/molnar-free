@@ -1,4 +1,5 @@
-// Tracers, bullet holes and particle bursts, all pooled.
+// Tracers, bullet holes and particle bursts. Everything is pooled so firing
+// never allocates meshes or materials.
 
 import * as THREE from 'three';
 
@@ -9,19 +10,34 @@ export class Effects {
   constructor(scene) {
     this.scene = scene;
     this.tracers = [];
+    this.tracerIndex = 0;
     this.particles = [];
+    this.particleIndex = 0;
     this.decals = [];
     this.decalIndex = 0;
+    this.particleMats = new Map();
 
-    this.tracerMat = new THREE.MeshBasicMaterial({
-      color: 0xffe08a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false,
-    });
+    for (let i = 0; i < 32; i++) {
+      const m = new THREE.Mesh(unitBox, new THREE.MeshBasicMaterial({
+        color: 0xffe08a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false,
+      }));
+      m.visible = false;
+      m.frustumCulled = false;
+      scene.add(m);
+      this.tracers.push({ m, life: 0 });
+    }
+    for (let i = 0; i < 96; i++) {
+      const m = new THREE.Mesh(unitBox, this.particleMaterial(0xffffff));
+      m.visible = false;
+      scene.add(m);
+      this.particles.push({ m, v: new THREE.Vector3(), life: 0 });
+    }
     const decalMat = new THREE.MeshBasicMaterial({
       color: 0x1a1a1a, transparent: true, opacity: 0.85, depthWrite: false,
       polygonOffset: true, polygonOffsetFactor: -4,
     });
     const decalGeo = new THREE.PlaneGeometry(0.14, 0.14);
-    for (let i = 0; i < 96; i++) {
+    for (let i = 0; i < 64; i++) {
       const m = new THREE.Mesh(decalGeo, decalMat);
       m.visible = false;
       scene.add(m);
@@ -29,16 +45,21 @@ export class Effects {
     }
   }
 
+  particleMaterial(color) {
+    if (!this.particleMats.has(color)) this.particleMats.set(color, new THREE.MeshBasicMaterial({ color }));
+    return this.particleMats.get(color);
+  }
+
   tracer(from, to) {
     const len = from.distanceTo(to);
     if (len < 0.5) return;
-    const mat = this.tracerMat.clone();
-    const m = new THREE.Mesh(unitBox, mat);
-    m.scale.set(0.025, 0.025, len);
-    m.position.copy(from).lerp(to, 0.5);
-    m.lookAt(to);
-    this.scene.add(m);
-    this.tracers.push({ m, life: 0.07, max: 0.07 });
+    const t = this.tracers[this.tracerIndex];
+    this.tracerIndex = (this.tracerIndex + 1) % this.tracers.length;
+    t.m.scale.set(0.025, 0.025, len);
+    t.m.position.copy(from).lerp(to, 0.5);
+    t.m.lookAt(to);
+    t.m.visible = true;
+    t.life = 0.07;
   }
 
   decal(point, normal) {
@@ -50,41 +71,40 @@ export class Effects {
   }
 
   burst(point, color, count = 6, speed = 4) {
-    const mat = new THREE.MeshBasicMaterial({ color });
+    const mat = this.particleMaterial(color);
     for (let i = 0; i < count; i++) {
-      const m = new THREE.Mesh(unitBox, mat);
+      const p = this.particles[this.particleIndex];
+      this.particleIndex = (this.particleIndex + 1) % this.particles.length;
       const s = 0.04 + Math.random() * 0.05;
-      m.scale.set(s, s, s);
-      m.position.copy(point);
-      this.scene.add(m);
-      this.particles.push({
-        m,
-        v: new THREE.Vector3((Math.random() - 0.5) * speed, Math.random() * speed, (Math.random() - 0.5) * speed),
-        life: 0.35 + Math.random() * 0.2,
-      });
+      p.m.scale.set(s, s, s);
+      p.m.position.copy(point);
+      p.m.material = mat;
+      p.m.visible = true;
+      p.v.set((Math.random() - 0.5) * speed, Math.random() * speed, (Math.random() - 0.5) * speed);
+      p.life = 0.35 + Math.random() * 0.2;
     }
   }
 
+  // hide everything, e.g. when the map changes
+  clear() {
+    for (const t of this.tracers) t.m.visible = false;
+    for (const p of this.particles) p.m.visible = false;
+    for (const d of this.decals) d.visible = false;
+  }
+
   update(dt) {
-    for (let i = this.tracers.length - 1; i >= 0; i--) {
-      const t = this.tracers[i];
+    for (const t of this.tracers) {
+      if (!t.m.visible) continue;
       t.life -= dt;
-      t.m.material.opacity = Math.max(0, t.life / t.max) * 0.9;
-      if (t.life <= 0) {
-        this.scene.remove(t.m);
-        t.m.material.dispose();
-        this.tracers.splice(i, 1);
-      }
+      t.m.material.opacity = Math.max(0, t.life / 0.07) * 0.9;
+      if (t.life <= 0) t.m.visible = false;
     }
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i];
+    for (const p of this.particles) {
+      if (!p.m.visible) continue;
       p.life -= dt;
       p.v.y -= 15 * dt;
       p.m.position.addScaledVector(p.v, dt);
-      if (p.life <= 0) {
-        this.scene.remove(p.m);
-        this.particles.splice(i, 1);
-      }
+      if (p.life <= 0) p.m.visible = false;
     }
   }
 }

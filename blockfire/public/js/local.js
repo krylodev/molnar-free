@@ -4,7 +4,6 @@
 import * as THREE from 'three';
 import { MOVE } from '/shared/constants.js';
 import { WEAPONS } from '/shared/weapons.js';
-import { BOXES } from '/shared/map.js';
 import {
   createMoveState, stepMove, eyeHeight, raycastBoxes, rayAABB, playerHitboxes, PHYSICS_STEP,
 } from '/shared/physics.js';
@@ -48,6 +47,7 @@ export class LocalPlayer {
     this.accum = 0;
     this.killer = null;
     this.spread = 0;
+    this.boxes = []; // collision boxes of the current map
 
     const flashMat = new THREE.MeshBasicMaterial({
       color: 0xffd27a, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false,
@@ -55,7 +55,7 @@ export class LocalPlayer {
     this.guns = GUN_IDS.map((id) => {
       const gun = makeGun(id);
       gun.group.traverse((o) => { o.castShadow = false; });
-      const hand = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.12), new THREE.MeshLambertMaterial({ color: 0xf0c8a0 }));
+      const hand = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.12), new THREE.MeshLambertMaterial({ color: 0x1a1d22 }));
       hand.position.set(0.0, -0.08, 0.03);
       gun.group.add(hand);
       const flash = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.2), flashMat);
@@ -186,7 +186,7 @@ export class LocalPlayer {
     gun.muzzle.getWorldPosition(v2).applyMatrix4(cam.matrixWorld);
     const origin = [o.x, o.y, o.z];
     for (const d of dirs) {
-      const wall = raycastBoxes(BOXES, origin, d, w.range);
+      const wall = raycastBoxes(this.boxes, origin, d, w.range);
       let best = wall ? wall.t : w.range;
       let hitPlayer = false;
       for (const rp of this.remotes.values()) {
@@ -280,7 +280,7 @@ export class LocalPlayer {
     };
     this.accum = Math.min(this.accum + dt, PHYSICS_STEP * 12);
     while (this.accum >= PHYSICS_STEP) {
-      stepMove(this.move, moveInput, PHYSICS_STEP, BOXES);
+      stepMove(this.move, moveInput, PHYSICS_STEP, this.boxes);
       this.accum -= PHYSICS_STEP;
     }
     if (this.pos.y < -20) this.pos.y = 5;

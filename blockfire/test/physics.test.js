@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BOXES, SPAWNS, WAYPOINTS } from '../shared/map.js';
+import { MAPS } from '../shared/maps/index.js';
+import courtyard from '../shared/maps/courtyard.js';
 import { PLAYER, MOVE } from '../shared/constants.js';
+import { PROP_COLLIDERS } from '../shared/props.js';
+
+const BOXES = courtyard.boxes;
 import {
   createMoveState, stepMove, collidesAt, raycastBoxes, rayAABB, playerHitboxes, PHYSICS_STEP,
 } from '../shared/physics.js';
@@ -12,14 +16,38 @@ function simulate(s, input, seconds) {
 
 const idle = { forward: 0, strafe: 0, jump: false, crouch: false, yaw: 0 };
 
-test('every spawn and waypoint is free and on the ground', () => {
-  for (const [x, z] of [...SPAWNS, ...WAYPOINTS]) {
-    assert.equal(collidesAt(BOXES, x, 0.01, z, PLAYER.height), null, `blocked at ${x},${z}`);
-    const s = createMoveState(x, 0.5, z);
-    simulate(s, idle, 0.5);
-    assert.ok(s.onGround && Math.abs(s.pos.y) < 1e-6, `no floor at ${x},${z}`);
-  }
-});
+for (const map of Object.values(MAPS)) {
+  test(`${map.name}: spawns and waypoints are free and on the ground`, () => {
+    assert.ok(map.spawns.length >= 8, 'enough spawns');
+    for (const [x, z] of map.waypoints) {
+      assert.equal(collidesAt(map.boxes, x, 0.05, z, PLAYER.height), null, `blocked at ${x},${z}`);
+      const s = createMoveState(x, 0.5, z);
+      for (let t = 0; t < 0.5; t += PHYSICS_STEP) stepMove(s, idle, PHYSICS_STEP, map.boxes);
+      assert.ok(s.onGround && s.pos.y < 0.05, `no floor at ${x},${z} (y=${s.pos.y})`);
+    }
+  });
+
+  test(`${map.name}: geometry is valid and inside the walls`, () => {
+    const limit = map.half + 2.01;
+    for (const b of map.boxes) {
+      for (let i = 0; i < 3; i++) assert.ok(b.max[i] > b.min[i], `empty box ${JSON.stringify(b)}`);
+      assert.ok(b.min[0] >= -limit && b.max[0] <= limit && b.min[2] >= -limit && b.max[2] <= limit,
+        `box outside the map ${JSON.stringify(b)}`);
+    }
+    for (const p of map.props) assert.ok(PROP_COLLIDERS[p.type], p.type);
+  });
+
+  test(`${map.name}: players cannot leave the arena`, () => {
+    const [x, z] = map.spawns[0];
+    for (const yaw of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      const s = createMoveState(x, 0, z);
+      for (let t = 0; t < 20; t += PHYSICS_STEP) {
+        stepMove(s, { ...idle, forward: 1, jump: true, yaw }, PHYSICS_STEP, map.boxes);
+      }
+      assert.ok(Math.abs(s.pos.x) < map.half && Math.abs(s.pos.z) < map.half, `escaped to ${s.pos.x},${s.pos.z}`);
+    }
+  });
+}
 
 test('a player stops at walls', () => {
   // walk toward the north boundary wall (z = -40)
@@ -47,7 +75,7 @@ test('jumping clears a crate and bunny hopping keeps speed', () => {
   }
   assert.ok(peak > 1.2, `jump peak ${peak}`);
 
-  const r = createMoveState(-36, 0, 30);
+  const r = createMoveState(-38, 0, 30);
   r.vel.z = -MOVE.runSpeed * 1.5;
   simulate(r, { ...idle, yaw: 0, forward: 1, jump: true }, 1);
   assert.ok(Math.hypot(r.vel.x, r.vel.z) > MOVE.runSpeed, 'hopping should not bleed speed to friction');

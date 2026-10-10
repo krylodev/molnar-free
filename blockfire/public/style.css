@@ -60,6 +60,18 @@ html, body {
 }
 #menu label > input:focus { border-color: var(--accent); }
 #menu input[type=range] { flex: 1; accent-color: var(--accent); }
+#menu input[type=range]:disabled { opacity: 0.4; }
+#menu select {
+  flex: 1;
+  padding: 9px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #151821;
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+}
+#quality-note { color: var(--accent); font-size: 12px; min-height: 1em; }
 #menu output { width: 40px; text-align: right; color: var(--text); }
 #menu button {
   width: 100%;

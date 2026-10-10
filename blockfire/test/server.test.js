@@ -5,6 +5,7 @@ import { Room } from '../server/room.js';
 import { startServer } from '../server.js';
 import { MATCH } from '../shared/constants.js';
 import { WEAPONS } from '../shared/weapons.js';
+import { MAPS, MAP_ROTATION } from '../shared/maps/index.js';
 
 function fakeSocket() {
   return { readyState: 1, bufferedAmount: 0, sent: [], send(d) { this.sent.push(JSON.parse(d)); } };
@@ -108,27 +109,49 @@ test('impossible movement is corrected', () => {
   assert.equal(a.x, -34.2);
 });
 
-test('bots fill the room and fight', async () => {
-  const room = new Room('bots', { minPlayers: 4 });
-  const human = room.addPlayer('Human', fakeSocket());
-  assert.equal(room.players.size, 4);
-  // run a minute of game time quickly
-  let t = performance.now();
-  room.stop();
-  for (let i = 0; i < 30 * 60; i++) {
-    const real = performance.now;
-    t += 1000 / 30;
-    performance.now = () => t;
-    try {
+// Runs the room's tick loop on a fake clock.
+function fastForward(room, seconds) {
+  const real = performance.now;
+  let t = real.call(performance);
+  try {
+    for (let i = 0; i < seconds * 30; i++) {
+      t += 1000 / 30;
+      performance.now = () => t;
       room.tick();
-    } finally {
-      performance.now = real;
     }
+  } finally {
+    performance.now = real;
   }
-  const kills = [...room.players.values()].reduce((n, p) => n + p.kills, 0);
-  assert.ok(kills > 0, 'bots should find and kill each other');
-  room.removePlayer(human.id);
-  assert.equal(room.players.size, 0, 'bots leave with the last human');
+}
+
+for (const map of Object.values(MAPS)) {
+  test(`bots fill the room and fight on ${map.name}`, () => {
+    const room = new Room('bots', { minPlayers: 6, map: map.id });
+    const human = room.addPlayer('Human', fakeSocket());
+    room.stop();
+    assert.equal(room.map.id, map.id);
+    assert.equal(room.players.size, 6);
+    fastForward(room, 60);
+    const kills = [...room.players.values()].reduce((n, p) => n + p.kills, 0);
+    assert.ok(kills > 0, 'bots should find and kill each other');
+    room.removePlayer(human.id);
+    assert.equal(room.players.size, 0, 'bots leave with the last human');
+  });
+}
+
+test('maps rotate between matches and players respawn on the new map', () => {
+  const room = new Room('rotation', { minPlayers: 0, map: 'nope' });
+  const p = room.addPlayer('A', fakeSocket());
+  room.stop();
+  assert.equal(room.map.id, MAP_ROTATION[0], 'unknown maps fall back to the rotation');
+  room.endMatch(performance.now());
+  assert.equal(sent(p, 'm').at(-1).next, MAP_ROTATION[1]);
+  room.startMatch(performance.now());
+  assert.equal(room.map.id, MAP_ROTATION[1]);
+  const types = p.ws.sent.map((m) => m.t);
+  assert.ok(types.lastIndexOf('m') < types.lastIndexOf('sp'), 'map change is sent before the spawn');
+  const spawn = sent(p, 'sp').at(-1).p;
+  assert.ok(room.map.spawns.some(([x, z]) => x === spawn[0] && z === spawn[2]));
 });
 
 test('server serves the client and runs a websocket game', async () => {
@@ -138,7 +161,10 @@ test('server serves the client and runs a websocket game', async () => {
     assert.equal(page.status, 200);
     assert.match(await page.text(), /Blockfire/);
     assert.equal((await fetch(`http://localhost:${srv.port}/vendor/three.module.js`)).status, 200);
-    assert.equal((await fetch(`http://localhost:${srv.port}/shared/map.js`)).status, 200);
+    assert.equal((await fetch(`http://localhost:${srv.port}/shared/maps/index.js`)).status, 200);
+    assert.equal((await fetch(`http://localhost:${srv.port}/addons/loaders/GLTFLoader.js`)).status, 200);
+    const glb = await fetch(`http://localhost:${srv.port}/models/character.glb`);
+    assert.equal(glb.headers.get('content-type'), 'model/gltf-binary');
     assert.equal((await fetch(`http://localhost:${srv.port}/..%2fserver.js`)).status, 404);
 
     const ws = new WebSocket(`ws://localhost:${srv.port}/ws`);

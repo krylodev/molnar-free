@@ -2,7 +2,6 @@
 // movement code as players and fire through the same hit detection.
 
 import { WEAPONS } from '../shared/weapons.js';
-import { BOXES, WAYPOINTS } from '../shared/map.js';
 import { createMoveState, stepMove, eyeHeight, raycastBoxes, viewDir, PHYSICS_STEP } from '../shared/physics.js';
 
 const RIFLE = 0;
@@ -60,12 +59,12 @@ export class Bot {
     const dist = Math.hypot(d[0], d[1], d[2]);
     if (dist > 60 || dist < 0.01) return false;
     const dir = [d[0] / dist, d[1] / dist, d[2] / dist];
-    return !raycastBoxes(BOXES, o, dir, dist);
+    return !raycastBoxes(this.room.map.boxes, o, dir, dist);
   }
 
   pickWaypoint() {
     const p = this.p;
-    const options = WAYPOINTS.filter(([x, z]) => Math.hypot(x - p.x, z - p.z) > 8);
+    const options = this.room.map.waypoints.filter(([x, z]) => Math.hypot(x - p.x, z - p.z) > 8);
     const [x, z] = options[Math.floor(Math.random() * options.length)];
     this.waypoint = { x, z };
   }
@@ -143,7 +142,7 @@ export class Bot {
     input.yaw = this.yaw;
 
     for (let left = dt; left > 1e-6; left -= PHYSICS_STEP) {
-      stepMove(this.move, input, Math.min(PHYSICS_STEP, left), BOXES);
+      stepMove(this.move, input, Math.min(PHYSICS_STEP, left), this.room.map.boxes);
     }
     p.x = this.move.pos.x;
     p.y = this.move.pos.y;

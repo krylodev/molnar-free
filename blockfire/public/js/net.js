@@ -18,12 +18,12 @@ export class Net {
     this.handlers.set(type, fn);
   }
 
-  connect(name, room) {
+  connect(name, room, map) {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${proto}//${location.host}/ws`);
     this.ws = ws;
     ws.onopen = () => {
-      this.send({ t: 'join', name, room });
+      this.send({ t: 'join', name, room, map });
       this.ping();
       this.pingTimer = setInterval(() => this.ping(), 2000);
     };

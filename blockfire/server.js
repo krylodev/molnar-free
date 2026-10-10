@@ -17,10 +17,11 @@ export function startServer({ port = 3000, host, minPlayers = 4 } = {}) {
   const server = http.createServer(serveStatic);
   const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024 });
 
-  const getRoom = (name) => {
+  // the first player into a room picks its starting map
+  const getRoom = (name, map) => {
     let room = rooms.get(name);
     if (!room) {
-      room = new Room(name, { minPlayers, onEmpty: (r) => rooms.delete(r.name) });
+      room = new Room(name, { minPlayers, map, onEmpty: (r) => rooms.delete(r.name) });
       rooms.set(name, room);
     }
     return room;
@@ -42,7 +43,7 @@ export function startServer({ port = 3000, host, minPlayers = 4 } = {}) {
       if (!msg || typeof msg !== 'object') return;
       if (!player) {
         if (msg.t !== 'join') return;
-        room = getRoom(roomName(msg.room));
+        room = getRoom(roomName(msg.room), typeof msg.map === 'string' ? msg.map : undefined);
         if (room.isFull()) {
           ws.send(JSON.stringify({ t: 'error', m: 'That room is full.' }));
           ws.close();

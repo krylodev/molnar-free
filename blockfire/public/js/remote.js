@@ -10,12 +10,12 @@ function lerpAngle(a, b, k) {
 }
 
 export class RemotePlayer {
-  constructor(info, scene) {
+  constructor(info, scene, castShadow = false) {
     this.id = info.id;
     this.name = info.name;
     this.color = info.color;
     this.scene = scene;
-    this.model = makeAvatar(info.color, info.name);
+    this.model = makeAvatar(info.color, info.name, castShadow);
     this.model.root.visible = false;
     scene.add(this.model.root);
     this.buffer = []; // [{ t, x, y, z, yaw, pitch, flags, w, hp }]

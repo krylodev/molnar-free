@@ -7,7 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23ffb400'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css">
   <script type="importmap">
-    { "imports": { "three": "/vendor/three.module.js" } }
+    { "imports": { "three": "/vendor/three.module.js", "three/addons/": "/addons/" } }
   </script>
 </head>
 <body>
@@ -64,6 +64,7 @@
       <p class="tag">Fast multiplayer arena shooter</p>
       <label>Name <input id="name" maxlength="16" autocomplete="off" placeholder="Your name"></label>
       <label>Room <input id="room" maxlength="20" autocomplete="off" placeholder="main"></label>
+      <label>Map <select id="map"></select></label>
       <button id="play">Play</button>
       <button id="resume" class="hidden">Resume</button>
       <button id="invite" class="secondary hidden">Copy invite link</button>
@@ -74,6 +75,16 @@
         <label>Sensitivity <input id="sens" type="range" min="0.2" max="4" step="0.05"> <output id="sens-val"></output></label>
         <label>Field of view <input id="fov" type="range" min="60" max="110" step="1"> <output id="fov-val"></output></label>
         <label>Volume <input id="vol" type="range" min="0" max="1" step="0.05"> <output id="vol-val"></output></label>
+        <label>Graphics
+          <select id="quality">
+            <option value="auto">Auto (adjusts to your PC)</option>
+            <option value="low">Low (fastest)</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+        <label>Resolution <input id="scale" type="range" min="0.5" max="1" step="0.05"> <output id="scale-val"></output></label>
+        <div id="quality-note"></div>
       </details>
 
       <div class="controls">
